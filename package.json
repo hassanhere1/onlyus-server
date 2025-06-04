@@ -9,7 +9,7 @@
     "express": "^4.19.2",
     "firebase-admin": "^13.4.0"
   },
-  "scripts": {
-    "start": "node app.js"
-  }
+"scripts": {
+  "start": "node index.js"
+}
 }
