@@ -1,55 +1,52 @@
 const express = require('express');
 const admin = require('firebase-admin');
-
-// Load service account from Railway env variable
-const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+const bodyParser = require('body-parser');
 
 const app = express();
-app.use(express.json());
+app.use(bodyParser.json());
+
+// Initialize Firebase Admin from ENV
+try {
+  const serviceAccount = JSON.parse(process.env.FIREBASE_ADMIN_JSON);
+  admin.initializeApp({
+    credential: admin.credential.cert(serviceAccount)
+  });
+  console.log('✅ Firebase Admin initialized');
+} catch (error) {
+  console.error('❌ Error initializing Firebase Admin:', error);
+}
 
 app.post('/sendPush', async (req, res) => {
-  const { fcmToken, title, body } = req.body;
+  const { token, title, body } = req.body;
 
-  if (!fcmToken || !title || !body) {
-    return res.status(400).json({ error: 'Missing fields: fcmToken, title, and body are required.' });
+  if (!token || !title || !body) {
+    return res.status(400).send({ error: 'Missing token, title, or body' });
   }
 
   const message = {
-    token: fcmToken,
     notification: {
       title,
-      body,
+      body
     },
-    android: {
-      priority: 'high',
-    },
-    apns: {
-      payload: {
-        aps: {
-          alert: {
-            title,
-            body,
-          },
-          sound: 'default',
-        },
-      },
-    },
+    token
   };
 
   try {
-    await admin.messaging().send(message);
-    res.status(200).json({ success: true });
+    const response = await admin.messaging().send(message);
+    console.log('✅ Push sent:', response);
+    res.send({ success: true, response });
   } catch (error) {
-    console.error('❌ Failed to send push notification:', error);
-    res.status(500).json({ error: 'Failed to send push notification.' });
+    console.error('❌ Error sending push:', error);
+    res.status(500).send({ error: 'Push failed', details: error.message });
   }
+});
+
+// Default route
+app.get('/', (req, res) => {
+  res.send('🟢 Push notification server is running!');
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🚀 Server is live on port ${PORT}`);
 });
