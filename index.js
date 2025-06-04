@@ -1,23 +1,55 @@
 const express = require('express');
 const admin = require('firebase-admin');
 
-const app = express();
-
-// Read the service account JSON from the environment variable
+// Load service account from Railway env variable
 const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-// Initialize Firebase Admin SDK
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
 });
 
-// Simple test route
-app.get('/', (req, res) => {
-  res.send('🚀 Firebase Admin is wired up securely via Railway!');
+const app = express();
+app.use(express.json());
+
+app.post('/sendPush', async (req, res) => {
+  const { fcmToken, title, body } = req.body;
+
+  if (!fcmToken || !title || !body) {
+    return res.status(400).json({ error: 'Missing fields: fcmToken, title, and body are required.' });
+  }
+
+  const message = {
+    token: fcmToken,
+    notification: {
+      title,
+      body,
+    },
+    android: {
+      priority: 'high',
+    },
+    apns: {
+      payload: {
+        aps: {
+          alert: {
+            title,
+            body,
+          },
+          sound: 'default',
+        },
+      },
+    },
+  };
+
+  try {
+    await admin.messaging().send(message);
+    res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('❌ Failed to send push notification:', error);
+    res.status(500).json({ error: 'Failed to send push notification.' });
+  }
 });
 
-// Listen on the Railway-provided port
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ Server listening on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
